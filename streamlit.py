@@ -1,24 +1,43 @@
+import pandas as pd
+from PIL import Image
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
-st.title("Drawable Canvas")
-st.markdown("""
-Draw on the canvas, get the image data back into Python !
-* Doubleclick to remove the selected object when not in drawing mode
-""")
-st.sidebar.header("Configuration")
-
-# Specify brush parameters and drawing mode
-b_width = st.sidebar.slider("Brush width: ", 1, 100, 10)
-b_color = st.sidebar.beta_color_picker("Enter brush color hex: ")
-bg_color = st.sidebar.beta_color_picker("Enter background color hex: ", "#eee")
-drawing_mode = st.sidebar.checkbox("Drawing mode ?", True)
-
-# Create a canvas component
-image_data = st_canvas(
-    b_width, b_color, bg_color, height=150, drawing_mode=drawing_mode, key="canvas"
+# Specify canvas parameters in application
+drawing_mode = st.sidebar.selectbox(
+    "Drawing tool:", ("point", "freedraw", "line", "rect", "circle", "transform")
 )
 
-# Do something interesting with the image data
-if image_data is not None:
-    st.image(image_data)
+stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 3)
+if drawing_mode == 'point':
+    point_display_radius = st.sidebar.slider("Point display radius: ", 1, 25, 3)
+stroke_color = st.sidebar.color_picker("Stroke color hex: ")
+bg_color = st.sidebar.color_picker("Background color hex: ", "#eee")
+bg_image = st.sidebar.file_uploader("Background image:", type=["png", "jpg"])
+
+realtime_update = st.sidebar.checkbox("Update in realtime", True)
+
+    
+
+# Create a canvas component
+canvas_result = st_canvas(
+    fill_color="rgba(255, 165, 0, 0.3)",  # Fixed fill color with some opacity
+    stroke_width=stroke_width,
+    stroke_color=stroke_color,
+    background_color=bg_color,
+    background_image=Image.open(bg_image) if bg_image else None,
+    update_streamlit=realtime_update,
+    height=150,
+    drawing_mode=drawing_mode,
+    point_display_radius=point_display_radius if drawing_mode == 'point' else 0,
+    key="canvas",
+)
+
+# Do something interesting with the image data and paths
+if canvas_result.image_data is not None:
+    st.image(canvas_result.image_data)
+if canvas_result.json_data is not None:
+    objects = pd.json_normalize(canvas_result.json_data["objects"]) # need to convert obj to str because PyArrow
+    for col in objects.select_dtypes(include=['object']).columns:
+        objects[col] = objects[col].astype("str")
+    st.dataframe(objects)
